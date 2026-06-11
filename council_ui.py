@@ -1,5 +1,13 @@
 import sys
 import os
+
+def resource_path(relative_path):
+    if hasattr(sys, "_MEIPASS"):
+        return os.path.join(sys._MEIPASS, relative_path)
+    return os.path.join(os.path.abspath("."), relative_path)
+
+import sys
+import os
 import json
 import math
 import random
@@ -23,7 +31,7 @@ from PyQt6.QtGui import (
 )
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-settings_path = os.path.join(BASE_DIR, "settings.json")
+settings_path = resource_path("settings.json")
 
 if not os.path.exists(settings_path):
     raise FileNotFoundError(f"Missing settings.json at {settings_path}")
@@ -34,7 +42,7 @@ with open(settings_path, "r") as f:
 # ── paths ──────────────────────────────────────────────────────────────────
 ASSETS_DIR    = os.path.join(BASE_DIR, "assets")
 DEBATES_DIR   = os.path.join(BASE_DIR, "debates")
-SETTINGS_FILE = os.path.join(BASE_DIR, "settings.json")
+SETTINGS_FILE = resource_path("settings.json")
 os.makedirs(DEBATES_DIR, exist_ok=True)
 
 # ── globals ────────────────────────────────────────────────────────────────

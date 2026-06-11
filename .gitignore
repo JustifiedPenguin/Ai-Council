@@ -1,0 +1,35 @@
+#Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+#Virtual environments
+venv/
+.venv/
+env/
+
+# uild artifacts (PyInstaller)
+build/
+dist/
+*.spec
+
+# Backup / temp files
+*.bak
+*.swp
+*.tmp
+
+#AppImage build junk
+AppDir/
+appimagetool-*.AppImage
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+#  Optional: local config overrides
+# (only ignore if you ever add personal settings)
+# settings.local.json

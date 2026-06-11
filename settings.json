@@ -15,7 +15,7 @@
   "port": "8080",
   "model_name": "llama3.2",
   "search_enabled": false,
-  "search_backend": "DuckDuckGo",
+  "search_backend": "SearXNG",
   "search_api_key": "",
   "search_url": "http://localhost:8888",
   "search_results": 3

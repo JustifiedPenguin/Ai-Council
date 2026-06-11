@@ -13,7 +13,7 @@ To ge the model to work just serve the model and choose the correct backend your
 It also has a web search feature with its own box that appears when you hit convene. If you want to export the debate to a .txt or.md file ypou can do so with the export button at the top.
 
 To Customize the persona cards just click the personas button at the top. You can also specify the amount of rounds you want them to debate. The default is 2, but the max is 5.
-
+_______________________________________________________________________________________________________________________________________
 
 
 

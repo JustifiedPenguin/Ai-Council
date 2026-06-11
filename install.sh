@@ -4,17 +4,20 @@ set -e
 
 echo "== AI Council Installer =="
 
-# Create venv
+if ! command -v python3 &> /dev/null; then
+    echo "❌ Python3 is required but not installed."
+    exit 1
+fi
+
 python3 -m venv venv
 source venv/bin/activate
 
-# Upgrade pip
 python -m pip install --upgrade pip
-
-# Install dependencies
 pip install -r requirements.txt
 
 echo ""
 echo "Installation complete!"
-echo "Run the app with:"
+echo "Run with:"
+echo "./run.sh (recommended)"
+echo "or:"
 echo "source venv/bin/activate && python council_ui.py"

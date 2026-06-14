@@ -1,0 +1,22 @@
+{
+  "accent": "#C8A96E",
+  "card_bg": "#1a1a1a",
+  "bg_color": "#0f0f0f",
+  "font_family": "Georgia",
+  "font_size": 12,
+  "temperature": 0.75,
+  "max_tokens": 500,
+  "ctx_override": 0,
+  "rounds": 2,
+  "show_moderator": true,
+  "notifications": true,
+  "auto_save": true,
+  "backend": "llama.cpp",
+  "port": "8080",
+  "model_name": "",
+  "search_enabled": false,
+  "search_backend": "DuckDuckGo",
+  "search_api_key": "",
+  "search_url": "http://localhost:8888",
+  "search_results": 3
+}

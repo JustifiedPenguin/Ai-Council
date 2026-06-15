@@ -7,6 +7,7 @@ import requests
 import subprocess
 import datetime
 import platform
+import platform
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QTextEdit, QLineEdit, QPushButton, QLabel, QFrame, QSizePolicy,
@@ -24,14 +25,32 @@ from PyQt6.QtGui import (
 )
 
 # ── OS detection ───────────────────────────────────────────────────────────
-PLATFORM = platform.system()   # "Linux", "Windows", "Darwin"
+PLATFORM   = platform.system()
 IS_LINUX   = PLATFORM == "Linux"
 IS_WINDOWS = PLATFORM == "Windows"
 IS_MAC     = PLATFORM == "Darwin"
 
 # ── paths ──────────────────────────────────────────────────────────────────
-BASE_DIR      = os.path.dirname(os.path.abspath(__file__))
-ASSETS_DIR    = os.path.join(BASE_DIR, "assets")
+def resource_path(path):
+    """For bundled assets (read-only, inside the EXE)."""
+    if hasattr(sys, "_MEIPASS"):
+        return os.path.join(sys._MEIPASS, path)
+    return os.path.join(os.path.abspath("."), path)
+
+def user_data_dir():
+    """Writable directory for user data."""
+    if hasattr(sys, "_MEIPASS"):
+        # PyInstaller EXE — write next to the exe
+        return os.path.dirname(sys.executable)
+    if os.environ.get("APPIMAGE"):
+        # Running as AppImage — write to ~/.config/TheCouncil
+        config = os.path.join(os.path.expanduser("~"), ".config", "TheCouncil")
+        os.makedirs(config, exist_ok=True)
+        return config
+    return os.path.abspath(".")
+
+BASE_DIR      = user_data_dir()
+ASSETS_DIR    = resource_path("assets")   # bundled read-only assets
 DEBATES_DIR   = os.path.join(BASE_DIR, "debates")
 SETTINGS_FILE = os.path.join(BASE_DIR, "settings.json")
 os.makedirs(DEBATES_DIR, exist_ok=True)
@@ -168,21 +187,41 @@ def web_search(query):
     try:
         b = settings["search_backend"]
         if b == "DuckDuckGo":
-            r = requests.get("https://api.duckduckgo.com/",
-                params={"q": query, "format": "json", "no_html": 1, "skip_disambig": 1},
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            }
+            r = requests.get("https://html.duckduckgo.com/html/",
+                params={"q": query},
+                headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"},
                 timeout=5)
-            data = r.json()
-            out  = []
-            if data.get("AbstractText"):
-                out.append(data["AbstractText"])
-                if data.get("AbstractURL"):
-                    sources.append(data["AbstractURL"])
-            for t in data.get("RelatedTopics", [])[:n]:
-                if isinstance(t, dict) and t.get("Text"):
-                    out.append(t["Text"])
-                    if t.get("FirstURL"):
-                        sources.append(t["FirstURL"])
-            return "\n\n".join(out[:n]), sources
+            from html.parser import HTMLParser
+            class DDGParser(HTMLParser):
+                def __init__(self):
+                    super().__init__()
+                    self.results = []
+                    self.current = None
+                    self.capture = False
+                def handle_starttag(self, tag, attrs):
+                    attrs = dict(attrs)
+                    if tag == "a" and "result__snippet" in attrs.get("class", ""):
+                        self.current = {"url": attrs.get("href", "")}
+                        self.capture = True
+                    if tag == "a" and "result__url" in attrs.get("class", ""):
+                        if self.current:
+                            self.current["url"] = attrs.get("href", "")
+                def handle_data(self, data):
+                    if self.capture and self.current is not None:
+                        self.current["text"] = data.strip()
+                        self.results.append(self.current)
+                        self.current = None
+                        self.capture = False
+            parser = DDGParser()
+            parser.feed(r.text)
+            results = parser.results[:n]
+            if not results:
+                return "[DuckDuckGo returned no results]", []
+            sources = [x["url"] for x in results if x.get("url")]
+            return "\n\n".join(x.get("text", "") for x in results if x.get("text")), sources
         elif b == "SearXNG":
             r     = requests.get(
                 settings["search_url"].rstrip("/") + "/search",
@@ -190,7 +229,7 @@ def web_search(query):
             items = r.json().get("results", [])[:n]
             sources = [x.get("url", "") for x in items if x.get("url")]
             return "\n\n".join(
-                f"{x.get('title','')}: {x.get('content','')}" for x in items), sources
+                f"{x.get('title','')}: {x.get('content','')}" for x in items), sources    
         elif b in ("Brave Search", "Tavily"):
             key = settings["search_api_key"]
             if not key:
@@ -279,7 +318,7 @@ class CouncilWorker(QThread):
                 "temperature": settings.get("temperature", 0.7),
                 "max_tokens":  min(settings.get("max_tokens", 512),
                                    self.ctx_size // 16),
-            }, timeout=30)
+            }, timeout=120)
             data = r.json()
             return (data.get("choices", [{}])[0]
                         .get("message", {})
@@ -588,23 +627,30 @@ class RoundIndicator(QWidget):
     def __init__(self, total_rounds=2):
         super().__init__()
         self.setFixedHeight(28)
+        self.setStyleSheet("QWidget { background: transparent; } QLabel { background: #111; }")
         self._layout = QHBoxLayout(self)
         self._layout.setContentsMargins(0, 0, 0, 0)
         self._layout.setSpacing(6)
         self.pills = []
+        self._current_round = 0
         self._build(total_rounds)
 
     def _pill_style(self, state):
-        a = settings["accent"]
+        a = QColor(settings["accent"])
+        ar, ag, ab = a.red(), a.green(), a.blue()
         if state == "done":
-            return (f"QLabel{{background:#1a1a1a;border:1px solid {a}44;color:{a}66;"
+            return (f"QLabel{{background:transparent;"
+                    f"border:1px solid rgba({ar},{ag},{ab},80);"
+                    f"color:rgba({ar},{ag},{ab},120);"
                     f"font-size:9px;letter-spacing:1px;padding:2px 10px;"
                     f"border-radius:11px;}}")
         if state == "active":
-            return (f"QLabel{{background:{a}22;border:1px solid {a};color:{a};"
+            return (f"QLabel{{background:rgba({ar},{ag},{ab},40);"
+                    f"border:1px solid rgba({ar},{ag},{ab},255);"
+                    f"color:rgba({ar},{ag},{ab},255);"
                     f"font-size:9px;letter-spacing:1px;padding:2px 10px;"
                     f"border-radius:11px;}}")
-        return ("QLabel{background:#111;border:1px solid #2a2a2a;color:#333;"
+        return ("QLabel{background:transparent;border:1px solid #333;color:#444;"
                 "font-size:9px;letter-spacing:1px;padding:2px 10px;border-radius:11px;}")
 
     def _build(self, n):
@@ -623,17 +669,28 @@ class RoundIndicator(QWidget):
         stretch.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self._layout.addWidget(stretch)
 
-    def set_rounds(self, n): self._build(n)
+    def set_rounds(self, n):
+        if n != len(self.pills):
+            self._build(n)
 
     def set_round(self, r):
+        self._current_round = r
         for i, pill in enumerate(self.pills):
-            if i + 1 < r:    pill.setStyleSheet(self._pill_style("done"))
-            elif i + 1 == r: pill.setStyleSheet(self._pill_style("active"))
-            else:            pill.setStyleSheet(self._pill_style("idle"))
+            if i + 1 < r:
+                pill.setStyleSheet(self._pill_style("done"))
+            elif i + 1 == r:
+                pill.setStyleSheet(self._pill_style("active"))
+            else:
+                pill.setStyleSheet(self._pill_style("idle"))
 
     def reset(self):
+        self._current_round = 0
         for pill in self.pills:
             pill.setStyleSheet(self._pill_style("idle"))
+
+    def reapply(self):
+        if self._current_round > 0:
+            self.set_round(self._current_round)
 
 # ── persona editor ─────────────────────────────────────────────────────────
 class PersonaEditorDialog(QDialog):
@@ -1406,19 +1463,18 @@ class CouncilApp(QMainWindow):
         self.worker     = None
         self.debate_log = []
 
-        icon_path = os.path.join(ASSETS_DIR, "icon.png")
-        app_icon  = None
-        if os.path.exists(icon_path):
-            app_icon = QIcon(icon_path)
-            self.setWindowIcon(app_icon)
+        icon_path = resource_path(os.path.join("assets", "ai-council.ico"))
+        app_icon = QIcon(icon_path)
+        self.setWindowIcon(app_icon)
 
         # Set up system-tray notifications now that QApplication exists
         _setup_tray(app_icon)
 
+        bg = settings.get("bg_color", "#0f0f0f")
         self.setStyleSheet(
-            "QMainWindow{background:#0f0f0f;}"
-            "QWidget{background:#0f0f0f;color:#cccccc;}"
-            "QLabel{background:transparent;}")
+            f"QMainWindow{{background:{bg};}}"
+            f"CouncilApp > QWidget{{background:{bg};color:#cccccc;}}"
+            f"QLabel{{background:transparent;}}")
 
         central = QWidget()
         self.setCentralWidget(central)
@@ -1430,9 +1486,9 @@ class CouncilApp(QMainWindow):
         # ── header ──────────────────────────────────────────────────────────
         self._header_frame = QFrame()
         self._header_frame.setStyleSheet(
-            "QFrame{background:qlineargradient(x1:0,y1:0,x2:0,y2:1,"
-            "stop:0 #1a1a1a,stop:1 #0f0f0f);border:none;"
-            "border-bottom:1px solid #1e1e1e;border-radius:6px;}")
+            f"QFrame{{background:qlineargradient(x1:0,y1:0,x2:0,y2:1,"
+            f"stop:0 #1a1a1a,stop:1 {bg});border:none;"
+            f"border-bottom:1px solid #1e1e1e;border-radius:6px;}}")
         self._header_frame.setFixedHeight(70)
         hf_layout = QHBoxLayout(self._header_frame)
         hf_layout.setContentsMargins(16, 0, 16, 0)
@@ -1535,11 +1591,11 @@ class CouncilApp(QMainWindow):
         self.input = QLineEdit()
         self.input.setPlaceholderText("Bring your question to the council...")
         self.input.setFixedHeight(44)
+        card_bg = settings.get("card_bg", "#1a1a1a")
         self.input.setStyleSheet(
-            f"QLineEdit{{background:#141414;border:1px solid #2a2a2a;"
-            f"border-bottom:1px solid {a}55;color:#eee;font-size:14px;"
-            f"padding:0 14px;border-radius:4px;}}"
-            f"QLineEdit:focus{{border-bottom:1px solid {a};background:#161616;}}")
+            f"QLineEdit{{background:{card_bg};border:2px solid #444444;"
+            f"color:#eee;font-size:14px;padding:0 14px;border-radius:4px;}}"
+            f"QLineEdit:focus{{border:2px solid #888888;background:{card_bg};}}")
         self.input.setFont(QFont(settings["font_family"], 13))
         self.input.returnPressed.connect(self.submit)
         input_row.addWidget(self.input)
@@ -1571,6 +1627,12 @@ class CouncilApp(QMainWindow):
         LLAMA_HOST      = f"http://127.0.0.1:{settings['port']}"
         LLAMA           = f"{LLAMA_HOST}/v1/chat/completions"
 
+    def closeEvent(self, event):
+        global _tray_icon
+        if _tray_icon:
+            _tray_icon.hide()
+            _tray_icon = None
+        event.accept()
     def resizeEvent(self, e):
         super().resizeEvent(e)
         cw = self.centralWidget()
@@ -1581,13 +1643,16 @@ class CouncilApp(QMainWindow):
                 cw.width() - pw - 8, 0, pw, cw.height())
 
     def _pulse_btn(self):
-        frames = ["|", "/", "-", "\\"]
-        self._btn_pulse_state = (self._btn_pulse_state + 1) % len(frames)
+        spinners = ["|", "/", "-", "\\"]
+        dots = ["", ".", "..", "..."]
+        self._btn_pulse_state = (self._btn_pulse_state + 1) % 20
+        spin = spinners[self._btn_pulse_state % len(spinners)]
+        dot = dots[self._btn_pulse_state % len(dots)]
         a = settings["accent"]
         self.status_label.setStyleSheet(
             f"color:{a};font-size:11px;letter-spacing:1px;font-weight:bold;")
-        self.status_label.setText(
-            f"{frames[self._btn_pulse_state]}  deliberating...")
+        self.status_label.setFont(QFont("Courier New", 11))
+        self.status_label.setText(f"{spin} deliberating{dot}")
 
     def build_cards(self):
         while self.cards_layout.count():
@@ -1608,32 +1673,38 @@ class CouncilApp(QMainWindow):
             self.settings_panel.show_panel()
         else:
             self.settings_panel.hide_panel()
-
+    
     def _on_settings_changed(self):
         QTimer.singleShot(300, lambda: self.settings_btn.setChecked(
             self.settings_panel.isVisible()))
         bg = settings.get("bg_color", "#0f0f0f")
+        card_bg = settings.get("card_bg", "#1a1a1a")
+        a = settings["accent"]
+
         self.setStyleSheet(
-            f"QMainWindow{{background:{bg};}}"
-            f"QWidget{{background:{bg};color:#cccccc;}}"
-            f"QLabel{{background:transparent;}}")
+            f"QMainWindow {{ background: {bg}; }}"
+            f"CouncilApp > QWidget {{ background: {bg}; }}")
+       
         self._header_frame.setStyleSheet(
             f"QFrame{{background:qlineargradient(x1:0,y1:0,x2:0,y2:1,"
             f"stop:0 #1a1a1a,stop:1 {bg});border:none;"
             f"border-bottom:1px solid #1e1e1e;border-radius:6px;}}")
-        a = settings["accent"]
+
         self.input.setStyleSheet(
-            f"QLineEdit{{background:{bg};border:1px solid #2a2a2a;"
-            f"border-bottom:1px solid {a}55;color:#eee;font-size:14px;"
-            f"padding:0 14px;border-radius:4px;}}"
-            f"QLineEdit:focus{{border-bottom:1px solid {a};background:{bg};}}")
+            f"QLineEdit{{background:{card_bg};border:2px solid #444444;"
+            f"color:#eee;font-size:14px;padding:0 14px;border-radius:4px;}}"
+            f"QLineEdit:focus{{border:2px solid #888888;background:{card_bg};}}")
+
+        self.status_label.setStyleSheet(
+            f"color:{a};font-size:11px;letter-spacing:1px;")
+
         for card in self.cards.values():
             card.refresh_style()
         self.moderator_card.refresh_style()
         self.moderator_card.setVisible(settings["show_moderator"])
         self.round_indicator.set_rounds(settings["rounds"])
         self.input.setFont(QFont(settings["font_family"], 13))
-        a    = settings["accent"]
+
         hbtn = (f"QPushButton{{background:transparent;border:1px solid #2a2a2a;"
                 f"color:#666;font-size:10px;letter-spacing:1px;"
                 f"padding:4px 12px;border-radius:3px;}}"
@@ -1655,7 +1726,8 @@ class CouncilApp(QMainWindow):
         self.btn.setStyleSheet(self._btn_normal_style)
         self.title_lbl.setStyleSheet(
             f"color:{a};letter-spacing:6px;background:transparent;")
-
+        self.round_indicator.reapply()
+           
     def open_persona_editor(self):
         dialog = PersonaEditorDialog(self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
@@ -1736,7 +1808,7 @@ class CouncilApp(QMainWindow):
         self.current_rounds     = []
         self.current_round_data = {}
         self.btn.setEnabled(False)
-        self._btn_pulse_timer.start(200)
+        self._btn_pulse_timer.start(285)
         self._title_line.set_active(True)
         self.input.setEnabled(False)
         self.export_btn.setEnabled(False)
@@ -1767,10 +1839,10 @@ class CouncilApp(QMainWindow):
         self.worker.start()
 
     def on_round_start(self, round_num):
-        self.round_indicator.set_round(round_num)
         if self.current_round_data:
             self.current_rounds.append(dict(self.current_round_data))
         self.current_round_data = {}
+        QTimer.singleShot(0, lambda: self.round_indicator.set_round(round_num))
 
     def on_persona_start(self, name):
         if name in self.cards:
@@ -1818,25 +1890,20 @@ class CouncilApp(QMainWindow):
 
 # ── entry point ────────────────────────────────────────────────────────────
 def main():
-    # Windows: tell Qt to use its own DPI awareness instead of the OS default
-    if IS_WINDOWS:
-        try:
-            from PyQt6.QtCore import Qt as _Qt
-            QApplication.setHighDpiScaleFactorRoundingPolicy(
-                _Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
-        except Exception:
-            pass
-
-    app = QApplication(sys.argv)
-    app.setStyle("Fusion")
-
-    # macOS: keep the app alive in the dock when the window is closed
-    if IS_MAC:
-        app.setQuitOnLastWindowClosed(False)
-
-    window = CouncilApp()
-    window.show()
-    sys.exit(app.exec())
+    import traceback
+    try:
+        print("APP STARTED")
+        app = QApplication(sys.argv)
+        app.setStyle("Fusion")
+        icon_path = resource_path(os.path.join("assets", "ai-council.ico"))
+        app.setWindowIcon(QIcon(icon_path))
+        window = CouncilApp()
+        window.show()
+        sys.exit(app.exec())
+    except Exception as e:
+        with open("crash_log.txt", "w") as f:
+            f.write(traceback.format_exc())
+        raise
 
 if __name__ == "__main__":
     main()

@@ -1,22 +1,72 @@
-# Ai-Council
-I originally made this for personal use but I figured why not share it. 
+# The Council
 
-_______________________________________________________________________________________________________________________________________
-Basically its a program that allows you to run a local Ai model through it, and it will split it up into 5 different 'personas' that are customizable. When you ask a question, the five different personas will come up with an answer and debate amongst each other what they think is correct, they will then bring their findings to "The Moderator". The Moderator will analyze their findings and come up with an answer.
-_______________________________________________________________________________________________________________________________________
+A local AI council that splits a single model into five debating personas, deliberates on your question across multiple rounds, and delivers a synthesized verdict from a neutral moderator.
 
-You can also customize the colors and font as well as temperature, token usage and other things.
+Originally built fo rpersonal use — figured I'd share it.
 
+---
 
-To ge the model to work just serve the model and choose the correct backend youre usingf as well as the port. For example if youre using ollama just choose that as the backend, type 8080 for the port, then type the model name. 
+# What it does
 
-It also has a web search feature with its own box that appears when you hit convene. If you want to export the debate to a .txt or.md file ypou can do so with the export button at the top.
+You ask a question. Five AI personas: The Analyst, The Devil's Advocate, The Pragmatist, The Empath, and The Visionary each respond independently, then debate each other across multiple rounds. The Moderator synthesizes their findings into a final recommendation.
 
-To Customize the persona cards just click the personas button at the top. You can also specify the amount of rounds you want them to debate. The default is 2, but the max is 5.
-_______________________________________________________________________________________________________________________________________
+All personas run on a single local model served through a compatible backend.
 
+---
 
+# Features
 
+- 5 customizable AI personas with editable names, colors, and system prompts
+- Multi round debate (1–5 rounds)
+- Neutral moderator card with final verdict
+- Web search integration (DuckDuckGo, SearXNG, Brave Search, Tavily)
+- Export debates to `.md` or `.txt`
+- Auto-save debates to the `debates/` folder
+- Customizable UI — accent color, background, card background, font, font size
+- Desktop notifications 
+- Supports multiple backends: llama.cpp, Ollama, LM Studio, Jan, koboldcpp, Oobabooga, TabbyAPI, OpenAI/OpenRouter
 
+---
 
+# Installation
 
+# Windows
+Download `TheCouncil.exe` from the releases section and run it. No installation required. Alternatively download the .rar extract it and run it from source.
+
+# Linux
+Download the `.AppImage` from the releases section and run it, or use the tarball:
+
+```bash
+tar -xzf Ai-Council.tar.gz
+cd Ai-Council
+pip install -r requirements.txt
+python council.py
+```
+
+---
+
+# Setup
+
+1. Serve your model using your preferred backend and make sure the port is correct if applicable. (e.g. llama.cpp, Ollama)
+2. Open The Council
+3. Click settings and select your backend and port
+4. For Ollama, also enter the model name
+5. Hit **Test Connection** to confirm it's working
+6. Ask the council a question and hit **CONVENE**
+
+# Example (llama.cpp)
+```bash
+./llama-server -m your-model.gguf --port 8080 --ctx-size 4096
+```
+
+---
+
+# Web Search
+
+Enable web search in ⚙ Settings. DuckDuckGo works out of the box with no API key. Other options include SearXNG (self-hosted or public instance) or Tavily (free API key).
+
+---
+
+# License
+
+See `LICENSE`.

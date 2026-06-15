@@ -2,7 +2,7 @@
 
 A local AI council that splits a single model into five debating personas, deliberates on your question across multiple rounds, and delivers a synthesized verdict from a neutral moderator.
 
-Originally built fo rpersonal use — figured I'd share it.
+Originally built fo rpersonal use; figured I'd share it.
 
 ---
 

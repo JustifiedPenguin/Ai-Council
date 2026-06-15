@@ -31,7 +31,7 @@ All personas run on a single local model served through a compatible backend.
 # Installation
 
 # Windows
-Download `TheCouncil.exe` from the releases section and run it. Alternatively download the .rar extract it and run it from source.
+Download `Ai-council-v2.0.exe` from the releases section and run it. Alternatively download the .rar extract it and run it from source.
 
 # Linux
 Download the `.AppImage` from the releases section and run it, or use the tarball:

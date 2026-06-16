@@ -17,7 +17,7 @@ All personas run on a single local model served through a compatible backend.
 # Features
 
 - 5 customizable AI personas with editable names, colors, and system prompts
-- Multi round debate (1–5 rounds)
+- Multi round debate (1–5 rounds, configurable)
 - Neutral moderator card with final verdict
 - Web search integration (DuckDuckGo, SearXNG, Brave Search, Tavily)
 - Export debates to `.md` or `.txt`

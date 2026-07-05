@@ -2,7 +2,7 @@
 
 A local AI council that splits a single model into five debating personas, deliberates on your question across multiple rounds, and delivers a synthesized verdict from a neutral moderator.
 
-Originally built fo rpersonal use — figured I'd share it.
+Originally built fo rpersonal use; figured I'd share it.
 
 ---
 
@@ -17,9 +17,9 @@ All personas run on a single local model served through a compatible backend.
 # Features
 
 - 5 customizable AI personas with editable names, colors, and system prompts
-- Multi round debate (1–5 rounds)
+- Multi round debate (1–5 rounds, configurable)
 - Neutral moderator card with final verdict
-- Web search integration (DuckDuckGo, SearXNG, Brave Search, Tavily)
+- Web search integration with DuckDuckGo, SearXNG, Brave Search, Tavily. (SearXNG must be set up locally, Brave and tavily need API keys). As for DuckDuckGo "it just works" - Todd Howard
 - Export debates to `.md` or `.txt`
 - Auto-save debates to the `debates/` folder
 - Customizable UI — accent color, background, card background, font, font size
@@ -31,7 +31,14 @@ All personas run on a single local model served through a compatible backend.
 # Installation
 
 # Windows
-Download `TheCouncil.exe` from the releases section and run it. No installation required. Alternatively download the .rar extract it and run it from source.
+Download `Ai-council-v2.0.exe` from the releases section and run it. Alternatively download the .zip, extract it, and run from source:
+
+```
+pip install -r requirements.txt
+python council.py
+```
+> **Note:** For the virtual environment, Python 3.10–3.12 required. Python 3.13+ is not supported.
+
 
 # Linux
 Download the `.AppImage` from the releases section and run it, or use the tarball:
@@ -54,11 +61,11 @@ python council.py
 5. Hit **Test Connection** to confirm it's working
 6. Ask the council a question and hit **CONVENE**
 
-# Example (llama.cpp)
-```bash
-./llama-server -m your-model.gguf --port 8080 --ctx-size 4096
-```
+# Example for windows (llama.cpp) 
+llama-server.exe -m your-model.gguf --port 8080 --ctx-size 4096
 
+# Example for Linux (llama.cpp)
+./llama-server -m your-model.gguf --port 8080 --ctx-size 4096
 ---
 
 # Web Search
